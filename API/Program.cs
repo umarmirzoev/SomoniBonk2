@@ -1,11 +1,16 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Http;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
 using System.IO;
+using SomoniBank.Application.AI.Interfaces;
+using SomoniBank.Application.AI.Options;
+using SomoniBank.Application.AI.Services;
 using SomoniBank.Infrastructure.Data;
+using SomoniBank.Infrastructure.AI.Services;
 using SomoniBank.Infrastructure.Interfaces;
 using SomoniBank.Infrastructure.Services;
 using SomoniBank.API.MiddleWares;
@@ -21,6 +26,13 @@ builder.Services.AddDataProtection()
 
 builder.Services.AddDbContext<AppDbContext>(opt =>
     opt.UseNpgsql(builder.Configuration.GetConnectionString("Default")));
+
+builder.Services.AddOptions<AiOptions>()
+    .Bind(builder.Configuration.GetSection(AiOptions.SectionName))
+    .Validate(x => !string.IsNullOrWhiteSpace(x.ApiKey), "AI API key is required.")
+    .Validate(x => !string.IsNullOrWhiteSpace(x.Model), "AI model is required.")
+    .Validate(x => x.MaxTokens > 0, "AI max tokens must be greater than zero.")
+    .ValidateOnStart();
 
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ISmsVerificationService, SmsVerificationService>();
@@ -54,8 +66,16 @@ builder.Services.AddScoped<IFraudDetectionService, FraudDetectionService>();
 builder.Services.AddScoped<IAdminDashboardService, AdminDashboardService>();
 builder.Services.AddScoped<IVirtualCardService, VirtualCardService>();
 builder.Services.AddScoped<ICreditScoringService, CreditScoringService>();
+builder.Services.AddScoped<IAiPromptBuilder, AiPromptBuilder>();
+builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
+builder.Services.AddScoped<IAiContextService, AiContextService>();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddHttpClient<IAiService, GeminiAiService>(client =>
+{
+    client.BaseAddress = new Uri("https://generativelanguage.googleapis.com/v1beta/");
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
 builder.Services.AddHttpClient<INbtExchangeRateSource, NbtExchangeRateSource>();
-builder.Services.AddHostedService<ExchangeRateRefreshBackgroundService>();
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(opt =>
@@ -112,6 +132,12 @@ builder.Services.AddCors(opt =>
         p.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod()));
 
 var app = builder.Build();
+
+using (var scope = app.Services.CreateScope())
+{
+    var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    dbContext.Database.Migrate();
+}
 
 app.UseMiddleware<RequestTimeMiddleware>();
 app.UseSwagger();

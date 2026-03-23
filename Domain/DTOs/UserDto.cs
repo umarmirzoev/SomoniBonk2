@@ -1,13 +1,36 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace SomoniBank.Domain.DTOs;
 
 public class UserInsertDto
 {
+    [Required]
+    [StringLength(50, MinimumLength = 2)]
     public string FirstName { get; set; } = null!;
+
+    [Required]
+    [StringLength(50, MinimumLength = 2)]
     public string LastName { get; set; } = null!;
+
+    [Required]
+    [EmailAddress]
+    [StringLength(100)]
     public string Email { get; set; } = null!;
+
+    [Required]
+    [StringLength(100, MinimumLength = 6)]
     public string Password { get; set; } = null!;
+
+    [Required]
+    [StringLength(20, MinimumLength = 5)]
     public string Phone { get; set; } = null!;
+
+    [Required]
+    [StringLength(200, MinimumLength = 3)]
     public string Address { get; set; } = null!;
+
+    [Required]
+    [StringLength(20, MinimumLength = 5)]
     public string PassportNumber { get; set; } = null!;
 }
 
@@ -34,10 +57,11 @@ public class UserGetDto
     public DateTime CreatedAt { get; set; }
 }
 
-public class LoginDto
+public class LoginRequest
 {
-    public string Email { get; set; } = null!;
-    public string Password { get; set; } = null!;
+    public string Email { get; set; } = string.Empty;
+
+    public string Password { get; set; } = string.Empty;
 }
 
 public class AuthResponseDto

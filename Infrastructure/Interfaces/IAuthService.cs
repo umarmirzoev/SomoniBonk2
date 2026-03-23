@@ -5,7 +5,7 @@ namespace SomoniBank.Infrastructure.Interfaces;
 
 public interface IAuthService
 {
-    Task<Response<AuthResponseDto>> LoginAsync(LoginDto dto, string ipAddress, string userAgent);
+    Task<Response<AuthResponseDto>> LoginAsync(LoginRequest request, string ipAddress, string userAgent);
     Task<Response<AuthResponseDto>> CreatePinAsync(CreatePinRequestDto dto, string ipAddress, string userAgent);
     Task<Response<AuthResponseDto>> LoginWithPinAsync(PinLoginRequestDto dto, string ipAddress, string userAgent);
     Task<Response<string>> RegisterAsync(UserInsertDto dto);

@@ -16,9 +16,14 @@ public class ExchangeRatesController(IExchangeRateService exchangeRateService) :
             var result = await exchangeRateService.GetLatestRatesAsync(cancellationToken);
             return Ok(result);
         }
-        catch (InvalidOperationException ex)
+        catch (InvalidOperationException)
         {
-            return Problem(title: "Exchange rates are unavailable.", detail: ex.Message, statusCode: StatusCodes.Status503ServiceUnavailable);
+            return Ok(new LatestExchangeRatesDto
+            {
+                RateDate = DateTime.UtcNow.AddHours(5).Date,
+                Source = "Unavailable",
+                Rates = []
+            });
         }
     }
 

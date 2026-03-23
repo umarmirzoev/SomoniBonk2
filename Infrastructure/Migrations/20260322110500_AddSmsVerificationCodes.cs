@@ -1,11 +1,15 @@
 using System;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
+using SomoniBank.Infrastructure.Data;
 
 #nullable disable
 
 namespace Infrastructure.Migrations
 {
     /// <inheritdoc />
+    [DbContext(typeof(AppDbContext))]
+    [Migration("20260322110500_AddSmsVerificationCodes")]
     public partial class AddSmsVerificationCodes : Migration
     {
         /// <inheritdoc />

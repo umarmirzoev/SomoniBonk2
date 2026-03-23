@@ -1,10 +1,14 @@
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
+using SomoniBank.Infrastructure.Data;
 
 #nullable disable
 
 namespace Infrastructure.Migrations
 {
     /// <inheritdoc />
+    [DbContext(typeof(AppDbContext))]
+    [Migration("20260322124000_AddUserPinHash")]
     public partial class AddUserPinHash : Migration
     {
         /// <inheritdoc />

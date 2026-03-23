@@ -35,21 +35,31 @@ public class AuthService : IAuthService
     {
         try
         {
-            if (await _db.Users.AnyAsync(u => u.Email == dto.Email))
+            if (!IsValidRegistrationRequest(dto, out var registrationError))
+                return new Response<string>(HttpStatusCode.BadRequest, registrationError);
+
+            var normalizedEmail = NormalizeEmail(dto.Email);
+            var normalizedPhone = NormalizePhone(dto.Phone);
+            var normalizedPassport = dto.PassportNumber.Trim().ToUpperInvariant();
+
+            if (await _db.Users.AnyAsync(u => u.Email == normalizedEmail))
                 return new Response<string>(HttpStatusCode.BadRequest, "Email already exists");
 
-            if (await _db.Users.AnyAsync(u => u.PassportNumber == dto.PassportNumber))
+            if (await _db.Users.AnyAsync(u => u.Phone == normalizedPhone))
+                return new Response<string>(HttpStatusCode.BadRequest, "Phone already registered");
+
+            if (await _db.Users.AnyAsync(u => u.PassportNumber == normalizedPassport))
                 return new Response<string>(HttpStatusCode.BadRequest, "Passport number already registered");
 
             var user = new User
             {
-                FirstName = dto.FirstName,
-                LastName = dto.LastName,
-                Email = dto.Email,
+                FirstName = dto.FirstName.Trim(),
+                LastName = dto.LastName.Trim(),
+                Email = normalizedEmail,
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password),
-                Phone = dto.Phone,
-                Address = dto.Address,
-                PassportNumber = dto.PassportNumber,
+                Phone = normalizedPhone,
+                Address = dto.Address.Trim(),
+                PassportNumber = normalizedPassport,
                 Role = UserRole.Client
             };
 
@@ -64,12 +74,16 @@ public class AuthService : IAuthService
         }
     }
 
-    public async Task<Response<AuthResponseDto>> LoginAsync(LoginDto dto, string ipAddress, string userAgent)
+    public async Task<Response<AuthResponseDto>> LoginAsync(LoginRequest request, string ipAddress, string userAgent)
     {
         try
         {
-            var user = await _db.Users.FirstOrDefaultAsync(u => u.Email == dto.Email);
-            var isSuccess = user != null && BCrypt.Net.BCrypt.Verify(dto.Password, user.PasswordHash);
+            if (!IsValidLoginRequest(request, out var loginError))
+                return new Response<AuthResponseDto>(HttpStatusCode.BadRequest, loginError);
+
+            var normalizedEmail = NormalizeEmail(request.Email);
+            var user = await _db.Users.FirstOrDefaultAsync(u => u.Email == normalizedEmail);
+            var isSuccess = user != null && BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash);
 
             if (user != null)
             {
@@ -86,7 +100,7 @@ public class AuthService : IAuthService
 
             if (!isSuccess)
             {
-                await _fraudDetectionService.ProcessFailedLoginAsync(dto.Email, ipAddress, userAgent);
+                await _fraudDetectionService.ProcessFailedLoginAsync(normalizedEmail, ipAddress, userAgent);
                 return new Response<AuthResponseDto>(HttpStatusCode.Unauthorized, "Invalid email or password");
             }
 
@@ -114,6 +128,14 @@ public class AuthService : IAuthService
     {
         try
         {
+            if (dto == null
+                || string.IsNullOrWhiteSpace(dto.Phone)
+                || string.IsNullOrWhiteSpace(dto.Pin)
+                || string.IsNullOrWhiteSpace(dto.VerificationToken))
+            {
+                return new Response<AuthResponseDto>(HttpStatusCode.BadRequest, "Phone, PIN, and verification token are required");
+            }
+
             var normalizedPhone = NormalizePhone(dto.Phone);
             if (!IsValidPin(dto.Pin))
                 return new Response<AuthResponseDto>(HttpStatusCode.BadRequest, "PIN must be 4-6 digits");
@@ -177,6 +199,11 @@ public class AuthService : IAuthService
     {
         try
         {
+            if (dto == null || string.IsNullOrWhiteSpace(dto.Phone) || string.IsNullOrWhiteSpace(dto.Pin))
+            {
+                return new Response<AuthResponseDto>(HttpStatusCode.BadRequest, "Phone and PIN are required");
+            }
+
             var normalizedPhone = NormalizePhone(dto.Phone);
             var user = await _db.Users.FirstOrDefaultAsync(x => x.Phone == normalizedPhone);
 
@@ -224,8 +251,19 @@ public class AuthService : IAuthService
     {
         try
         {
+            if (dto == null
+                || string.IsNullOrWhiteSpace(dto.OldPassword)
+                || string.IsNullOrWhiteSpace(dto.NewPassword)
+                || string.IsNullOrWhiteSpace(dto.ConfirmPassword))
+            {
+                return new Response<string>(HttpStatusCode.BadRequest, "All password fields are required");
+            }
+
             if (dto.NewPassword != dto.ConfirmPassword)
                 return new Response<string>(HttpStatusCode.BadRequest, "Passwords do not match");
+
+            if (dto.NewPassword.Length < 6)
+                return new Response<string>(HttpStatusCode.BadRequest, "New password must be at least 6 characters long");
 
             var user = await _db.Users.FindAsync(userId);
             if (user == null)
@@ -317,6 +355,65 @@ public class AuthService : IAuthService
         => !string.IsNullOrWhiteSpace(pin)
            && pin.Length is >= 4 and <= 6
            && pin.All(char.IsDigit);
+
+    private static bool IsValidRegistrationRequest(UserInsertDto? dto, out string error)
+    {
+        if (dto == null)
+        {
+            error = "Request payload is required";
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(dto.FirstName)
+            || string.IsNullOrWhiteSpace(dto.LastName)
+            || string.IsNullOrWhiteSpace(dto.Email)
+            || string.IsNullOrWhiteSpace(dto.Password)
+            || string.IsNullOrWhiteSpace(dto.Phone)
+            || string.IsNullOrWhiteSpace(dto.Address)
+            || string.IsNullOrWhiteSpace(dto.PassportNumber))
+        {
+            error = "All registration fields are required";
+            return false;
+        }
+
+        if (!dto.Email.Contains('@'))
+        {
+            error = "Email format is invalid";
+            return false;
+        }
+
+        if (dto.Password.Length < 6)
+        {
+            error = "Password must be at least 6 characters long";
+            return false;
+        }
+
+        error = string.Empty;
+        return true;
+    }
+
+    private static bool IsValidLoginRequest(LoginRequest? dto, out string error)
+    {
+        if (dto == null)
+        {
+            error = "Request payload is required";
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(dto.Email) || string.IsNullOrWhiteSpace(dto.Password))
+        {
+            error = "Email and password are required";
+            return false;
+        }
+
+        error = string.Empty;
+        return true;
+    }
+
+    private static string NormalizeEmail(string? email)
+        => string.IsNullOrWhiteSpace(email)
+            ? string.Empty
+            : email.Trim().ToLowerInvariant();
 
     private static string NormalizePhone(string? phone)
     {

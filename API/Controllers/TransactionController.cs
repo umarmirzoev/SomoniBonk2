@@ -29,6 +29,10 @@ public class TransactionController(ITransactionService transactionService) : Con
     public async Task<PagedResult<TransactionGetDto>> GetMyTransactions([FromQuery] TransactionFilter filter, [FromQuery] PagedQuery pagedQuery)
         => await transactionService.GetAllAsync(filter, pagedQuery, CurrentUserId);
 
+    [HttpGet("recent")]
+    public async Task<PagedResult<TransactionGetDto>> GetRecentTransactions(CancellationToken cancellationToken = default)
+        => await transactionService.GetAllAsync(new TransactionFilter(), new PagedQuery { Page = 1, PageSize = 10 }, CurrentUserId);
+
     [HttpPost("transfer")]
     public async Task<Response<string>> Transfer(TransferDto dto)
         => await transactionService.TransferAsync(CurrentUserId, dto);

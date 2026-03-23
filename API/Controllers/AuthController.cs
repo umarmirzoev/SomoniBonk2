@@ -12,23 +12,23 @@ namespace SomoniBank.API.Controllers;
 public class AuthController(IAuthService authService, ISmsVerificationService smsVerificationService) : ControllerBase
 {
     [HttpPost("register")]
-    public async Task<Response<string>> Register(UserInsertDto dto)
-        => await authService.RegisterAsync(dto);
+    public async Task<ActionResult<Response<string>>> Register([FromBody] UserInsertDto dto)
+        => ToHttpResult(await authService.RegisterAsync(dto));
 
     [HttpPost("login")]
-    public async Task<Response<AuthResponseDto>> Login(LoginDto dto)
+    public async Task<ActionResult<Response<AuthResponseDto>>> Login([FromBody] LoginRequest request)
     {
         var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
         var userAgent = Request.Headers.UserAgent.ToString();
-        return await authService.LoginAsync(dto, ipAddress, userAgent);
+        return ToHttpResult(await authService.LoginAsync(request, ipAddress, userAgent));
     }
 
     [HttpPost("change-password")]
     [Authorize]
-    public async Task<Response<string>> ChangePassword(ChangePasswordDto dto)
+    public async Task<ActionResult<Response<string>>> ChangePassword([FromBody] ChangePasswordDto dto)
     {
         var userId = Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
-        return await authService.ChangePasswordAsync(userId, dto);
+        return ToHttpResult(await authService.ChangePasswordAsync(userId, dto));
     }
 
     [HttpPost("send-code")]
@@ -42,22 +42,25 @@ public class AuthController(IAuthService authService, ISmsVerificationService sm
     public async Task<ActionResult<VerifyResult>> VerifyCode([FromBody] VerifyCodeRequestDto dto, CancellationToken cancellationToken)
     {
         var response = await smsVerificationService.VerifyCodeAsync(dto.Phone, dto.Code, cancellationToken);
-        return Ok(response);
+        return response.Success ? Ok(response) : BadRequest(response);
     }
 
     [HttpPost("create-pin")]
-    public async Task<Response<AuthResponseDto>> CreatePin([FromBody] CreatePinRequestDto dto)
+    public async Task<ActionResult<Response<AuthResponseDto>>> CreatePin([FromBody] CreatePinRequestDto dto)
     {
         var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
         var userAgent = Request.Headers.UserAgent.ToString();
-        return await authService.CreatePinAsync(dto, ipAddress, userAgent);
+        return ToHttpResult(await authService.CreatePinAsync(dto, ipAddress, userAgent));
     }
 
     [HttpPost("pin-login")]
-    public async Task<Response<AuthResponseDto>> PinLogin([FromBody] PinLoginRequestDto dto)
+    public async Task<ActionResult<Response<AuthResponseDto>>> PinLogin([FromBody] PinLoginRequestDto dto)
     {
         var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
         var userAgent = Request.Headers.UserAgent.ToString();
-        return await authService.LoginWithPinAsync(dto, ipAddress, userAgent);
+        return ToHttpResult(await authService.LoginWithPinAsync(dto, ipAddress, userAgent));
     }
+
+    private ActionResult<Response<T>> ToHttpResult<T>(Response<T> response)
+        => StatusCode(response.StatusCode, response);
 }

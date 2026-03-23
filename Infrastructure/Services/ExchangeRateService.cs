@@ -64,13 +64,28 @@ public sealed class ExchangeRateService(
 
         if (latestDate is null)
         {
-            throw new InvalidOperationException("No exchange rates are available.");
+            return new LatestExchangeRatesDto
+            {
+                RateDate = DateTime.UtcNow.AddHours(5).Date,
+                Source = "Unavailable",
+                Rates = []
+            };
         }
 
         var rates = await dbContext.ExchangeRates.AsNoTracking()
             .Where(x => x.RateDate == latestDate.Value)
             .OrderBy(x => x.CurrencyCode)
             .ToListAsync(cancellationToken);
+
+        if (rates.Count == 0)
+        {
+            return new LatestExchangeRatesDto
+            {
+                RateDate = latestDate.Value,
+                Source = "Unavailable",
+                Rates = []
+            };
+        }
 
         return new LatestExchangeRatesDto
         {
@@ -91,7 +106,17 @@ public sealed class ExchangeRateService(
         var normalizedTo = NormalizeCurrency(toCurrency);
 
         var latestRates = await GetLatestRatesAsync(cancellationToken);
+        if (latestRates.Rates.Count == 0)
+        {
+            throw new InvalidOperationException("Exchange rates are unavailable.");
+        }
+
         var rateMap = latestRates.Rates.ToDictionary(x => x.CurrencyCode, x => x.Rate, StringComparer.OrdinalIgnoreCase);
+        if ((normalizedFrom != "TJS" && !rateMap.ContainsKey(normalizedFrom))
+            || (normalizedTo != "TJS" && !rateMap.ContainsKey(normalizedTo)))
+        {
+            throw new InvalidOperationException("Required exchange rates are unavailable.");
+        }
 
         decimal convertedAmount;
 

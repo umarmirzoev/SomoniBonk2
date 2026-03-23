@@ -1165,6 +1165,16 @@
           "buildTransitive/net6.0/_._": {}
         }
       },
+      "Application/1.0.0": {
+        "type": "project",
+        "framework": ".NETCoreApp,Version=v9.0",
+        "compile": {
+          "bin/placeholder/Application.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/Application.dll": {}
+        }
+      },
       "Domain/1.0.0": {
         "type": "project",
         "framework": ".NETCoreApp,Version=v9.0",
@@ -1182,6 +1192,7 @@
         "type": "project",
         "framework": ".NETCoreApp,Version=v9.0",
         "dependencies": {
+          "Application": "1.0.0",
           "BCrypt.Net-Next": "4.1.0",
           "Domain": "1.0.0",
           "Microsoft.AspNetCore.Authentication.JwtBearer": "9.0.0",
@@ -3635,6 +3646,11 @@
         "useSharedDesignerContext.txt"
       ]
     },
+    "Application/1.0.0": {
+      "type": "project",
+      "path": "../Application/Application.csproj",
+      "msbuildProject": "../Application/Application.csproj"
+    },
     "Domain/1.0.0": {
       "type": "project",
       "path": "../Domain/Domain.csproj",
@@ -3648,6 +3664,7 @@
   },
   "projectFileDependencyGroups": {
     "net9.0": [
+      "Application >= 1.0.0",
       "Domain >= 1.0.0",
       "Infrastructure >= 1.0.0",
       "Microsoft.AspNetCore.OpenApi >= 9.0.10",
@@ -3680,6 +3697,9 @@
         "net9.0": {
           "targetAlias": "net9.0",
           "projectReferences": {
+            "C:\\Users\\HP\\Desktop\\SomoniBank\\Application\\Application.csproj": {
+              "projectPath": "C:\\Users\\HP\\Desktop\\SomoniBank\\Application\\Application.csproj"
+            },
             "C:\\Users\\HP\\Desktop\\SomoniBank\\Domain\\Domain.csproj": {
               "projectPath": "C:\\Users\\HP\\Desktop\\SomoniBank\\Domain\\Domain.csproj"
             },
